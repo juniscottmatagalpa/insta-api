@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
   try {
     const apiUrl =
-      `https://snapinsta.io/api/ajaxSearch?lang=es&url=` +
+      "https://snapinsta.io/api/ajaxSearch?lang=es&url=" +
       encodeURIComponent(q);
 
     const r = await fetch(apiUrl, {
@@ -15,26 +15,40 @@ export default async function handler(req, res) {
       headers: {
         "User-Agent": "Mozilla/5.0",
         "X-Requested-With": "XMLHttpRequest",
-        res.setHeader("Access-Control-Allow-Origin", "*"),
         "Referer": "https://snapinsta.io/",
       }
     });
 
-    const html = await r.text();
+    const text = await r.text();
 
-    // ✅ Extraer el JSON real desde el script HTML
-    const match = html.match(/var\s+data\s*=\s*(\{.*?\});/s);
-    if (!match) {
-      return res.status(500).json({ error: "No se pudo procesar el video" });
+    // ✅ 1. Parsear JSON principal
+    let initialJson;
+    try {
+      initialJson = JSON.parse(text);
+    } catch {
+      return res.status(500).json({ error: "SnapInsta no devolvió JSON válido" });
     }
 
-    const data = JSON.parse(match[1]);
+    // ✅ 2. Extraer HTML interno donde viene el video
+    const innerHTML = initialJson.data;
+    if (!innerHTML)
+      return res.status(500).json({ error: "No se encontró contenido del video" });
 
-    // ✅ Respuesta correcta con CORS habilitado
+    // ✅ 3. Extraer URL del video HD dentro del HTML
+    const videoMatch = innerHTML.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
+    if (!videoMatch)
+      return res.status(500).json({ error: "No se encontró enlace de descarga HD" });
+
+    const videoUrl = videoMatch[1];
+
     res.setHeader("Access-Control-Allow-Origin", "*");
     return res.json({
       status: "success",
-      data
+      data: {
+        title: "Video de Instagram",
+        thumbnail: "", // SnapInsta no envía thumb directo ahora
+        video: [{ url: videoUrl }]
+      }
     });
 
   } catch (e) {
