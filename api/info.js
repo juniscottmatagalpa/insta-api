@@ -6,21 +6,33 @@ export default async function handler(req, res) {
   if (!q) return res.status(400).json({ error: "Falta el enlace" });
 
   try {
-    const form = new URLSearchParams({ url: q });
+    const apiUrl =
+      "https://snapinsta.io/api/ajaxSearch?lang=es&url=" +
+      encodeURIComponent(q);
 
-    const r = await fetch("https://instafix.net/api/details", {
-      method: "POST",
-      body: form,
+    const r = await fetch(apiUrl, {
+      method: "GET",
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Content-Type": "application/x-www-form-urlencoded"
+        "X-Requested-With": "XMLHttpRequest"
       }
     });
 
-    const json = await r.json();
+    const text = await r.text();
+
+    // SnapInsta devuelve HTML — Extraemos JSON del script
+    const jsonMatch = text.match(/"data":(\{.*?\}),"page"/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: "No se pudo procesar el video" });
+    }
+
+    const data = JSON.parse(jsonMatch[1]);
 
     res.setHeader("Access-Control-Allow-Origin", "*");
-    return res.json(json);
+    return res.json({
+      status: "success",
+      data
+    });
 
   } catch (e) {
     return res.status(500).json({ error: String(e) });
