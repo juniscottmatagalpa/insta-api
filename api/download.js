@@ -6,14 +6,11 @@ export default async function handler(req, res) {
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error("Archivo no accesible");
-
-    // ✅ Convertir correctamente sin llamar Buffer directo sobre fetch
     const buffer = Buffer.from(await r.arrayBuffer());
 
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", ext === "mp3" ? "audio/mpeg" : "video/mp4");
+    res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", `attachment; filename="video.${ext}"`);
-
     return res.send(buffer);
 
   } catch (e) {
