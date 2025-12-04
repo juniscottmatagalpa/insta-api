@@ -7,27 +7,30 @@ export default async function handler(req, res) {
 
   try {
     const apiUrl =
-      "https://snapinsta.io/api/ajaxSearch?lang=es&url=" +
+      `https://snapinsta.io/api/ajaxSearch?lang=es&url=` +
       encodeURIComponent(q);
 
     const r = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "X-Requested-With": "XMLHttpRequest"
+        "X-Requested-With": "XMLHttpRequest",
+        res.setHeader("Access-Control-Allow-Origin", "*"),
+        "Referer": "https://snapinsta.io/",
       }
     });
 
-    const text = await r.text();
+    const html = await r.text();
 
-    // SnapInsta devuelve HTML — Extraemos JSON del script
-    const jsonMatch = text.match(/"data":(\{.*?\}),"page"/);
-    if (!jsonMatch) {
+    // ✅ Extraer el JSON real desde el script HTML
+    const match = html.match(/var\s+data\s*=\s*(\{.*?\});/s);
+    if (!match) {
       return res.status(500).json({ error: "No se pudo procesar el video" });
     }
 
-    const data = JSON.parse(jsonMatch[1]);
+    const data = JSON.parse(match[1]);
 
+    // ✅ Respuesta correcta con CORS habilitado
     res.setHeader("Access-Control-Allow-Origin", "*");
     return res.json({
       status: "success",
