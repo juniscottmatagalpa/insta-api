@@ -1,5 +1,3 @@
-import { chromium } from "@playwright/test";
-
 export default async function handler(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -9,41 +7,31 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
-  const q = req.body?.q || req.query?.q;
-  if (!q) return res.status(400).json({ error: "Falta enlace" });
+  const url = req.body?.q || req.query?.q;
+  if (!url) return res.status(400).json({ error: "Falta el enlace" });
 
   try {
-    const browser = await chromium.launch({
-      args: ['--no-sandbox'],
-      headless: true
+    const r = await fetch("https://instasupersave.com/api/convert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
+      },
+      body: JSON.stringify({ url })
     });
 
-    const page = await browser.newPage();
+    const data = await r.json();
 
-    await page.goto("https://saveig.app/", {
-      waitUntil: "domcontentloaded",
-      timeout: 20000
-    });
-
-    await page.fill("input[name=url]", q);
-    await page.click("button[type=submit]");
-
-    await page.waitForSelector("a[href$='.mp4']", { timeout: 15000 });
-
-    const videoUrl = await page.getAttribute("a[href$='.mp4']", "href");
-
-    const thumb = await page.getAttribute("img.thumbnail", "src").catch(() => "");
-
-    await browser.close();
-
-    if (!videoUrl) return res.status(500).json({ error: "No se pudo obtener video" });
+    if (!data || !data.url || !data.url[0]) {
+      return res.status(500).json({ error: "No se pudo obtener el video" });
+    }
 
     return res.json({
       status: "success",
       data: {
-        title: "Video de Instagram",
-        thumbnail: thumb || "",
-        video: [{ url: videoUrl }]
+        title: data.title || "Video de Instagram",
+        thumbnail: data.thumbnail || "",
+        video: [{ url: data.url[0] }]
       }
     });
 
