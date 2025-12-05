@@ -1,55 +1,42 @@
+import { chromium } from 'playwright';  // o puppeteer
+
 export default async function handler(req, res) {
+  // ... tus headers CORS como ya tienes
 
-  // CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
 
   const q = req.body?.q || req.query?.q;
-  if (!q) return res.status(400).json({ error: "Falta el enlace" });
+  if (!q) return res.status(400).json({ error: 'Falta el enlace' });
 
   try {
+    const browser = await chromium.launch({ args: ['--no-sandbox'] });
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36');
+    await page.goto('https://saveig.app/server', { waitUntil: 'networkidle' });
 
-    // 👉 Petición a SaveIG con User-Agent real (EVITA fetch failed)
-    const r = await fetch("https://saveig.app/server", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-      },
-      body: `url=${encodeURIComponent(q)}`
-    });
+    // Completar el formulario si SaveIG lo espera
+    await page.fill('input[name="url"]', q);
+    await page.click('button[type="submit"]');
 
-    const html = await r.text();
+    // Esperar que cargue el resultado
+    await page.waitForSelector('a[href$=".mp4"]', { timeout: 15000 });
+    const videoUrl = await page.getAttribute('a[href$=".mp4"]', 'href');
+    const thumbnail = await page.getAttribute('img.thumbnail', 'src').catch(() => '');
 
-    // Extraer enlace del video MP4
-    const mp4Match = html.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
-    if (!mp4Match) {
-      return res.status(500).json({ error: "No se pudo obtener el video" });
+    await browser.close();
+
+    if (!videoUrl) {
+      return res.status(500).json({ error: 'No se pudo extraer video' });
     }
 
-    const videoUrl = mp4Match[1];
-
-    // Extraer miniatura
-    const thumbMatch = html.match(/<img[^>]+src="([^"]+)"[^>]*class="thumbnail"/i);
-    const thumbnail = thumbMatch ? thumbMatch[1] : "";
-
     return res.json({
-      status: "success",
-      data: {
-        title: "Video de Instagram",
-        thumbnail,
-        video: [
-          { url: videoUrl }
-        ]
-      }
+      status: 'success',
+      data: { title: 'Video de Instagram', thumbnail, video: [{ url: videoUrl }] }
     });
 
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
 }
+
