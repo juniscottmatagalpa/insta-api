@@ -1,38 +1,42 @@
-import { chromium } from 'playwright';  // o puppeteer
-
 export default async function handler(req, res) {
-  // ... tus headers CORS como ya tienes
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
   const q = req.body?.q || req.query?.q;
-  if (!q) return res.status(400).json({ error: 'Falta el enlace' });
+  if (!q) return res.status(400).json({ error: "Falta el enlace" });
 
   try {
-    const browser = await chromium.launch({ args: ['--no-sandbox'] });
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36');
-    await page.goto('https://saveig.app/server', { waitUntil: 'networkidle' });
+    // 🔥 Servicio alternativo NO bloqueado
+    const api = `https://snapinsta.io/api/ajaxSearch?q=${encodeURIComponent(q)}`;
 
-    // Completar el formulario si SaveIG lo espera
-    await page.fill('input[name="url"]', q);
-    await page.click('button[type="submit"]');
+    const r = await fetch(api, {
+      method: "GET",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0)",
+        "Accept": "application/json,text/html"
+      }
+    });
 
-    // Esperar que cargue el resultado
-    await page.waitForSelector('a[href$=".mp4"]', { timeout: 15000 });
-    const videoUrl = await page.getAttribute('a[href$=".mp4"]', 'href');
-    const thumbnail = await page.getAttribute('img.thumbnail', 'src').catch(() => '');
+    const data = await r.text();
 
-    await browser.close();
+    // Buscar MP4 directamente
+    const mp4 = data.match(/(https:\/\/.*?\.mp4.*?)"/);
+    if (!mp4) return res.status(500).json({ error: "No se pudo obtener el video." });
 
-    if (!videoUrl) {
-      return res.status(500).json({ error: 'No se pudo extraer video' });
-    }
+    const videoUrl = mp4[1];
 
     return res.json({
-      status: 'success',
-      data: { title: 'Video de Instagram', thumbnail, video: [{ url: videoUrl }] }
+      status: "success",
+      data: {
+        title: "Video de Instagram",
+        thumbnail: "",
+        video: [{ url: videoUrl }]
+      }
     });
 
   } catch (e) {
