@@ -16,6 +16,7 @@ export default async function handler(req, res) {
 
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", `attachment; filename="video.mp4"`);
+
     res.send(buffer);
 
   } catch (e) {
