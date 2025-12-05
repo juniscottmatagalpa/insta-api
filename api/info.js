@@ -7,31 +7,44 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
-  const url = req.body?.q || req.query?.q;
-  if (!url) return res.status(400).json({ error: "Falta el enlace" });
+  const link = req.body?.q || req.query?.q;
+  if (!link) return res.status(400).json({ error: "Falta enlace" });
 
   try {
-    const r = await fetch("https://instasupersave.com/api/convert", {
-      method: "POST",
+    // 1) Extraer código del post
+    const match = link.match(/\/p\/([^\/]+)/) || link.match(/\/reel\/([^\/]+)/);
+    if (!match) return res.status(400).json({ error: "Enlace inválido" });
+
+    const code = match[1];
+
+    // 2) API real de Instagram
+    const apiUrl = `https://www.instagram.com/p/${code}/?__a=1&__d=dis`;
+
+    const r = await fetch(apiUrl, {
       headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0"
-      },
-      body: JSON.stringify({ url })
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+      }
     });
 
     const data = await r.json();
 
-    if (!data || !data.url || !data.url[0]) {
-      return res.status(500).json({ error: "No se pudo obtener el video" });
-    }
+    const media = data?.items?.[0] || data?.graphql?.shortcode_media;
+
+    if (!media) return res.status(500).json({ error: "No se pudo obtener información" });
+
+    const videoUrl = media.video_versions?.[0]?.url;
+    const thumb = media.display_url;
+
+    if (!videoUrl)
+      return res.status(500).json({ error: "Este enlace no contiene video." });
 
     return res.json({
       status: "success",
       data: {
-        title: data.title || "Video de Instagram",
-        thumbnail: data.thumbnail || "",
-        video: [{ url: data.url[0] }]
+        title: media.title || "Video de Instagram",
+        thumbnail: thumb,
+        video: [{ url: videoUrl }]
       }
     });
 
