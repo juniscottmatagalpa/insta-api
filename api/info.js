@@ -1,4 +1,14 @@
 export default async function handler(req, res) {
+
+  // CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST")
     return res.status(405).json({ error: "Método no permitido" });
 
@@ -7,8 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const apiUrl =
-      "https://snapinsta.io/api/ajaxSearch?lang=es&url=" +
-      encodeURIComponent(q);
+      "https://snapinsta.io/api/ajaxSearch?lang=es&url=" + encodeURIComponent(q);
 
     const r = await fetch(apiUrl, {
       method: "GET",
@@ -21,30 +30,25 @@ export default async function handler(req, res) {
 
     const text = await r.text();
 
-    let initialJson;
+    // SnapInsta ya NO devuelve JSON completo → solo algunos campos
+    let info;
     try {
-      initialJson = JSON.parse(text);
+      info = JSON.parse(text);
     } catch {
       return res.status(500).json({ error: "SnapInsta no devolvió JSON válido" });
     }
 
-    const innerHTML = initialJson.data;
-    if (!innerHTML)
-      return res.status(500).json({ error: "No se encontró contenido del video" });
+    if (!info.data)
+      return res.status(500).json({ error: "Falta la sección data en respuesta" });
 
-    const videoMatch = innerHTML.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
-    if (!videoMatch)
+    const inner = info.data;
+
+    const match = inner.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
+    if (!match)
       return res.status(500).json({ error: "No se encontró enlace MP4" });
 
-    const videoUrl = videoMatch[1];
+    const videoUrl = match[1];
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
-
-res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-    
     return res.json({
       status: "success",
       data: {
