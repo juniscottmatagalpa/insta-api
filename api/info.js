@@ -2,63 +2,49 @@ export default async function handler(req, res) {
 
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Método no permitido" });
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
   const q = req.body?.q || req.query?.q;
   if (!q) return res.status(400).json({ error: "Falta el enlace" });
 
   try {
-    const apiUrl =
-      "https://snapinsta.io/api/ajaxSearch?lang=es&url=" + encodeURIComponent(q);
-
-    const r = await fetch(apiUrl, {
-      method: "GET",
+    // 1. Pedimos a SaveIG
+    const r = await fetch("https://saveig.app/server", {
+      method: "POST",
       headers: {
-        "User-Agent": "Mozilla/5.0",
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://snapinsta.io/"
-      }
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+      },
+      body: `url=${encodeURIComponent(q)}`
     });
 
-    const text = await r.text();
+    const html = await r.text();
 
-    // SnapInsta ya NO devuelve JSON completo → solo algunos campos
-    let info;
-    try {
-      info = JSON.parse(text);
-    } catch {
-      return res.status(500).json({ error: "SnapInsta no devolvió JSON válido" });
+    // 2. Extraer MP4 del HTML
+    const mp4Match = html.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
+    if (!mp4Match) {
+      return res.status(500).json({ error: "No se pudo obtener el video" });
     }
 
-    if (!info.data)
-      return res.status(500).json({ error: "Falta la sección data en respuesta" });
+    const videoUrl = mp4Match[1];
 
-    const inner = info.data;
-
-    const match = inner.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
-    if (!match)
-      return res.status(500).json({ error: "No se encontró enlace MP4" });
-
-    const videoUrl = match[1];
+    // 3. (Opcional) Extraer thumbnail
+    const thumbMatch = html.match(/<img[^>]+src="([^"]+)"[^>]*class="thumbnail"/i);
+    const thumbnail = thumbMatch ? thumbMatch[1] : "";
 
     return res.json({
       status: "success",
       data: {
         title: "Video de Instagram",
-        thumbnail: "",
+        thumbnail,
         video: [{ url: videoUrl }]
       }
     });
 
   } catch (e) {
-    return res.status(500).json({ error: String(e) });
+    return res.status(500).json({ error: e.message });
   }
 }
