@@ -39,6 +39,12 @@ export default async function handler(req, res) {
     const videoUrl = videoMatch[1];
 
     res.setHeader("Access-Control-Allow-Origin", "*");
+
+res.setHeader("Access-Control-Allow-Origin", "*");
+res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    
     return res.json({
       status: "success",
       data: {
