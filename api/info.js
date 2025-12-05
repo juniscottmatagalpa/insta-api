@@ -12,18 +12,21 @@ export default async function handler(req, res) {
   if (!q) return res.status(400).json({ error: "Falta el enlace" });
 
   try {
-    // 1. Pedimos a SaveIG
+
+    // 👉 Petición a SaveIG con User-Agent real (EVITA fetch failed)
     const r = await fetch("https://saveig.app/server", {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
       },
       body: `url=${encodeURIComponent(q)}`
     });
 
     const html = await r.text();
 
-    // 2. Extraer MP4 del HTML
+    // Extraer enlace del video MP4
     const mp4Match = html.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
     if (!mp4Match) {
       return res.status(500).json({ error: "No se pudo obtener el video" });
@@ -31,7 +34,7 @@ export default async function handler(req, res) {
 
     const videoUrl = mp4Match[1];
 
-    // 3. (Opcional) Extraer thumbnail
+    // Extraer miniatura
     const thumbMatch = html.match(/<img[^>]+src="([^"]+)"[^>]*class="thumbnail"/i);
     const thumbnail = thumbMatch ? thumbMatch[1] : "";
 
@@ -40,7 +43,9 @@ export default async function handler(req, res) {
       data: {
         title: "Video de Instagram",
         thumbnail,
-        video: [{ url: videoUrl }]
+        video: [
+          { url: videoUrl }
+        ]
       }
     });
 
