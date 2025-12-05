@@ -15,13 +15,12 @@ export default async function handler(req, res) {
       headers: {
         "User-Agent": "Mozilla/5.0",
         "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://snapinsta.io/",
+        "Referer": "https://snapinsta.io/"
       }
     });
 
     const text = await r.text();
 
-    // ✅ 1. Parsear JSON principal
     let initialJson;
     try {
       initialJson = JSON.parse(text);
@@ -29,15 +28,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "SnapInsta no devolvió JSON válido" });
     }
 
-    // ✅ 2. Extraer HTML interno donde viene el video
     const innerHTML = initialJson.data;
     if (!innerHTML)
       return res.status(500).json({ error: "No se encontró contenido del video" });
 
-    // ✅ 3. Extraer URL del video HD dentro del HTML
     const videoMatch = innerHTML.match(/href="(https:\/\/[^"]+\.mp4[^"]*)"/);
     if (!videoMatch)
-      return res.status(500).json({ error: "No se encontró enlace de descarga HD" });
+      return res.status(500).json({ error: "No se encontró enlace MP4" });
 
     const videoUrl = videoMatch[1];
 
@@ -46,7 +43,7 @@ export default async function handler(req, res) {
       status: "success",
       data: {
         title: "Video de Instagram",
-        thumbnail: "", // SnapInsta no envía thumb directo ahora
+        thumbnail: "",
         video: [{ url: videoUrl }]
       }
     });
